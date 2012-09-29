@@ -1,0 +1,88 @@
+#!/usr/bin/env ruby1.8
+
+# workaround-upstart-snafu
+#
+# When lied to about the behavior of a job’s main process wrt. forking with the
+# “expect” stanza, Upstart can get into a confused state where it’s tracking a
+# nonexistent pid.
+#
+# This hack creates new short-lived processes until one gets the pid in
+# question, then has its parent die so that it’s going to get reaped by pid 1
+# (Upstart), which will get Upstart out of the confused state.
+#
+# When “status <jobname>” says “<jobname> stop/killed, process 12345” and
+# there’s no such process, run “workaround-upstart-snafu 12345” and wait until
+# it exits.
+
+# Copyright © 2012 Johan Kiviniemi <devel@johan.kiviniemi.name>
+# 
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+class Workaround
+  def initialize target_pid
+    @target_pid = target_pid
+
+    first_child
+  end
+
+  def first_child
+    pid = fork do
+      Process.setsid
+
+      rio, wio = IO.pipe
+
+      # Keep rio open
+      until second_child rio, wio
+        print "\e[A"
+      end
+    end
+
+    Process.wait pid
+  end
+
+  def second_child parent_rio, parent_wio
+    rio, wio = IO.pipe
+
+    pid = fork do
+      rio.close
+      parent_wio.close
+
+      puts "%20.20s" % Process.pid
+
+      if Process.pid == @target_pid
+        wio << 'a'
+        wio.close
+
+        parent_rio.read
+      end
+    end
+    wio.close
+
+    begin
+      if rio.read == 'a'
+        true
+      else
+        Process.wait pid
+        false
+      end
+    ensure
+      rio.close
+    end
+  end
+end
+
+if $0 == __FILE__
+  pid = ARGV.shift
+  raise "USAGE: #{$0} pid" if pid.nil?
+  Workaround.new Integer pid
+end
