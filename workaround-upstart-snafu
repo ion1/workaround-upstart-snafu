@@ -32,7 +32,18 @@ class Workaround
   def initialize target_pid
     @target_pid = target_pid
 
+    quit_if_process_exists
     first_child
+  end
+  
+  def quit_if_process_exists
+    warning = "There is already a process running with the PID #{@target_pid}, try killing it?"
+    Process.kill(0, @target_pid)
+    puts(warning) & exit
+  rescue Errno::EPERM
+    puts(warning) & exit
+  rescue Errono::ESRCH
+    puts "No process with that PID currently running - attempting to obtain the PID."
   end
 
   def first_child
