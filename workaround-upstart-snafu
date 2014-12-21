@@ -42,7 +42,7 @@ class Workaround
     puts(warning) & exit
   rescue Errno::EPERM
     puts(warning) & exit
-  rescue Errono::ESRCH
+  rescue Errno::ESRCH
     puts "No process with that PID currently running - attempting to obtain the PID."
   end
 
