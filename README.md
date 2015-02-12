@@ -11,3 +11,9 @@ which will get Upstart out of the confused state.
 When “`status <jobname>`” says “`<jobname> stop/killed, process 12345`” and
 there’s no such process, run “`workaround-upstart-snafu 12345`” and wait until
 it exits.
+
+To speed things up (i.e. to limit the PID space this script covers), issue the following command:
+
+    echo $N | sudo tee /proc/sys/kernel/pid_max
+
+...where ```N``` is non-existent PID plus a few hundred.
