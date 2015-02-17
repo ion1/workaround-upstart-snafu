@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby1.8
+#!/usr/bin/env ruby
 
 # workaround-upstart-snafu
 #
@@ -39,10 +39,12 @@ class Workaround
   def quit_if_process_exists
     warning = "There is already a process running with the PID #{@target_pid}, try killing it?"
     Process.kill(0, @target_pid)
-    puts(warning) & exit
+    $stderr.puts(warning)
+    exit 1
   rescue Errno::EPERM
-    puts(warning) & exit
-  rescue Errono::ESRCH
+    $stderr.puts(warning)
+    exit 1
+  rescue Errno::ESRCH
     puts "No process with that PID currently running - attempting to obtain the PID."
   end
 
