@@ -12,28 +12,20 @@ When “`status <jobname>`” says “`<jobname> stop/killed, process 12345`” 
 there’s no such process, run “`workaround-upstart-snafu 12345`” and wait until
 it exits.
 
-# Taking too long?
+### Taking too long?
 
-To speed things up (i.e. to limit the PID space this script covers), follow these steps:
-
-* get the current setting for ```pid_max```, and jot it down (typically 32768).
+Depending on the speed of your system and `pid_max` setting, the process of exhausting all unused PIDs to get to the one you want can take some time. To speed things up (limit the PID space this script has to cover), you can temporarily lower your system's `max_pid` setting:
 
 ```
-sysctl kernel.pid_max
+# First, save the current setting for `pid_max`:
+OLD_MAX_PID=`sysctl kernel.pid_max`
+
+# Get the current highest PID:
+HIGHEST_PID=`ps axo pid | tail -n 1`
+
+# Set `pid_max` to a few hundred higher than that:
+sudo sysctl -w kernel.pid_max=$(($HIGHEST_PID+500))
+
+# DON'T FORGET to set it back to it's original value when you're done!
+sudo sysctl -w kernel.pid_max=$OLD_MAX_PID
 ```
-
-* get the current highest PID:
-
-```
-ps axo pid | tail -n 1
-```
-
-* add a few hundred to this value, and call it N
-* set the ```pid_max``` to this new value:
-
-```
-sudo sysctl -w kernel.pid_max=$N
-```
-
-* the above change is permanent, so remember to set it back to that initial value you jotted down.
-
