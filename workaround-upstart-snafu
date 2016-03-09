@@ -50,6 +50,7 @@ class Workaround
 
   def first_child
     pid = fork do
+      return true if Process.pid == @target_pid
       Process.setsid
 
       rio, wio = IO.pipe
