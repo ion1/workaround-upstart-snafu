@@ -2,24 +2,24 @@
 
 # workaround-upstart-snafu
 #
-# When lied to about the behavior of a job’s main process wrt. forking with the
-# “expect” stanza, Upstart can get into a confused state where it’s tracking a
+# When lied to about the behavior of a job's main process wrt. forking with the
+# "expect" stanza, Upstart can get into a confused state where it's tracking a
 # nonexistent pid.
 #
 # This hack creates new short-lived processes until one gets the pid in
-# question, then has its parent die so that it’s going to get reaped by pid 1
+# question, then has its parent die so that it's going to get reaped by pid 1
 # (Upstart), which will get Upstart out of the confused state.
 #
-# When “status <jobname>” says “<jobname> stop/killed, process 12345” and
-# there’s no such process, run “workaround-upstart-snafu 12345” and wait until
+# When "status <jobname>" says "<jobname> stop/killed, process 12345" and
+# there's no such process, run "workaround-upstart-snafu 12345" and wait until
 # it exits.
 
-# Copyright © 2012 Johan Kiviniemi <devel@johan.kiviniemi.name>
-# 
+# Copyright 2012 Johan Kiviniemi <devel@johan.kiviniemi.name>
+#
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 # WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -29,13 +29,13 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 class Workaround
-  def initialize target_pid
+  def initialize(target_pid)
     @target_pid = target_pid
 
     quit_if_process_exists
     first_child
   end
-  
+
   def quit_if_process_exists
     warning = "There is already a process running with the PID #{@target_pid}, try killing it?"
     Process.kill(0, @target_pid)
@@ -45,32 +45,31 @@ class Workaround
     $stderr.puts(warning)
     exit 1
   rescue Errno::ESRCH
-    puts "No process with that PID currently running - attempting to obtain the PID."
+    puts 'No process with that PID currently running - attempting to obtain the PID.'
   end
 
   def first_child
     pid = fork do
+      return true if Process.pid == @target_pid
       Process.setsid
 
       rio, wio = IO.pipe
 
       # Keep rio open
-      until second_child rio, wio
-        print "\e[A"
-      end
+      print "\e[A" until second_child rio, wio
     end
 
     Process.wait pid
   end
 
-  def second_child parent_rio, parent_wio
+  def second_child(parent_rio, parent_wio)
     rio, wio = IO.pipe
 
     pid = fork do
       rio.close
       parent_wio.close
 
-      puts "%20.20s" % Process.pid
+      puts format('%20.20s', Process.pid)
 
       if Process.pid == @target_pid
         wio << 'a'
@@ -94,8 +93,8 @@ class Workaround
   end
 end
 
-if $0 == __FILE__
+if $PROGRAM_NAME == __FILE__
   pid = ARGV.shift
-  raise "USAGE: #{$0} pid" if pid.nil?
+  raise 'USAGE: {$PROGRAM_NAME} pid' if pid.nil?
   Workaround.new Integer pid
 end
